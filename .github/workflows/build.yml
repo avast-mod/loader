@@ -3,7 +3,9 @@ on:
   push:
     branches:
       - main
+      - dev
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,23 +18,23 @@ jobs:
         include:
           #- target: x86_64-pc-windows-msvc
           #  os: windows-latest
-          #  filename: avast_loader.dll
+          #  filename: avast.dll
 
           - target: x86_64-pc-windows-gnu
             os: ubuntu-latest
-            filename: avast_loader.dll
+            filename: avast.dll
 
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            filename: libavast_loader.so
+            filename: libavast.so
 
           - target: aarch64-apple-darwin
             os: macos-latest
-            filename: libavast_loader.dylib
+            filename: libavast.dylib
 
-          #- target: x86_64-apple-darwin
-          #  os: macos-latest
-          #  filename: libavast_loader.dylib
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            filename: libavast.dylib
 
     steps:
       - name: Checkout

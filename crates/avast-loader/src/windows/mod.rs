@@ -1,6 +1,6 @@
 #![cfg(windows)]
 use color_eyre::eyre::Context;
-use gdpatch::GDPatch;
+use avast::Avast;
 use retour::static_detour;
 use std::ffi::{OsString, c_void};
 use std::os::windows::ffi::OsStringExt;
@@ -36,11 +36,11 @@ fn get_console_env_var() -> bool {
 // Avoid Windows loader lock by hooking the entrypoint
 // https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-best-practices#general-best-practices
 fn entrypoint_detour() -> u32 {
-    if let Err(err) = GDPatch::setup_instance_logging_etc() {
-        panic!("GDPatch early initialization failed: {err:?}");
+    if let Err(err) = Avast::setup_instance_logging_etc() {
+        panic!("Avast early initialization failed: {err:?}");
     }
 
-    let instance = GDPatch::instance();
+    let instance = Avast::instance();
 
     // Only enable console if we didn't already do that
     if instance.config.log.console
@@ -52,7 +52,7 @@ fn entrypoint_detour() -> u32 {
 
     // Finish setup.
     if let Err(err) = instance.finish_setup() {
-        panic!("GDPatch initialization failed: {err:?}");
+        panic!("Avast initialization failed: {err:?}");
     }
 
     EntryPointHook.call()
@@ -130,7 +130,7 @@ extern "C" fn dll_main(dll_handle: HINSTANCE, reason: u32, _reserved: *const ())
     // Attach console (using a non-figment env var!)
     console::setup_panic_hook();
 
-    let disabled = gdpatch::is_disabled();
+    let disabled = avast::is_disabled();
 
     if !disabled
         && get_console_env_var()

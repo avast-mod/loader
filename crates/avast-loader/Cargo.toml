@@ -9,13 +9,14 @@ build = "build.rs"
 
 [lib]
 crate-type = ["cdylib"]
+name = "avast"
 
 [build-dependencies]
 color-eyre.workspace = true
 indexmap.workspace = true
 
 [dependencies]
-gdpatch.workspace = true
+avast.workspace = true
 tracing.workspace = true
 color-eyre.workspace = true
 

@@ -4,7 +4,7 @@ use crate::{
     virtual_pack::{FileContents, builder::VirtualPackBuilder},
 };
 use color_eyre::eyre::Context as _;
-use gdpatch_godot::{
+use avast_godot::{
     ReadableMarshalBuffer, UIDCache, WritableMarshalBuffer,
     build::{EngineBuild, GDScriptBuild, GDScriptV2Build},
     config_file::{class_cache::ClassCache, extension_list::ExtensionList},

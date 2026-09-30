@@ -1,4 +1,4 @@
-//! # `gdpatch-godot`
+//! # `avast-godot`
 //!
 //! Godot types and file format parsers.
 extern crate core;

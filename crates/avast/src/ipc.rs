@@ -1,5 +1,5 @@
 //! Handles sending messages between the Rust component and GDScript autoload.
-use crate::{GDPatch, mods::ModInfo};
+use crate::{Avast, mods::ModInfo};
 use color_eyre::eyre::bail;
 use filesilly::Stream;
 use serde::{Deserialize, Serialize};
@@ -97,15 +97,15 @@ impl IpcStream {
 
         match command.data {
             IpcCommand::GetModList => {
-                let gdpatch = GDPatch::instance();
-                let mods = gdpatch.mods.read();
+                let avast = Avast::instance();
+                let mods = avast.mods.read();
                 let mods = mods.as_ref().expect("mods should be initialized");
                 let mod_infos = mods.0.values().map(|m| m.info.clone()).collect();
                 self.submit_response(seq, IpcResponse::ModList { value: mod_infos })?;
             }
             IpcCommand::GetRootDirectory => {
-                let gdpatch = GDPatch::instance();
-                let root_directory = gdpatch.get_root_directory();
+                let avast = Avast::instance();
+                let root_directory = avast.get_root_directory();
                 self.submit_response(
                     seq,
                     IpcResponse::RootDirectory {
@@ -114,8 +114,8 @@ impl IpcStream {
                 )?;
             }
             IpcCommand::GetModDirectory { mod_id } => {
-                let gdpatch = GDPatch::instance();
-                let mod_directory = gdpatch.get_mod_directory(&mod_id);
+                let avast = Avast::instance();
+                let mod_directory = avast.get_mod_directory(&mod_id);
                 self.submit_response(
                     seq,
                     IpcResponse::ModDirectory {
@@ -128,8 +128,8 @@ impl IpcStream {
                 section,
                 option,
             } => {
-                let gdpatch = GDPatch::instance();
-                let value = gdpatch.get_config_option(&mod_id, &section, &option);
+                let avast = Avast::instance();
+                let value = avast.get_config_option(&mod_id, &section, &option);
                 self.submit_response(seq, IpcResponse::ConfigOption { value })?;
             }
             IpcCommand::SetConfigOption {
@@ -138,8 +138,8 @@ impl IpcStream {
                 option,
                 value,
             } => {
-                let gdpatch = GDPatch::instance();
-                gdpatch.set_config_option(&mod_id, &section, &option, value)?;
+                let avast = Avast::instance();
+                avast.set_config_option(&mod_id, &section, &option, value)?;
             }
             IpcCommand::LogMessage { level, message } => {
                 let message = message.trim();

@@ -1,5 +1,5 @@
 [package]
-name = "gdpatch-godot"
+name = "avast-godot"
 description = "Parsers for Godot file formats"
 version.workspace = true
 edition.workspace = true

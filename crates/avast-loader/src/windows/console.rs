@@ -44,7 +44,7 @@ pub fn setup_panic_hook() {
             let msg = format!(
                 r#"AVaSt has crashed! Sorry. :(
 
-Check the log file for more debugging info. This may have been caused by a mod, or possibly AVaSt itself. (AVaSt loader, forked from GDPatch)
+Check the log file for more debugging info. This may have been caused by a mod, or possibly AVaSt itself. (AVaSt loader, forked from Avast)
 
 {payload}
                 "#,

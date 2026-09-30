@@ -3,10 +3,10 @@ use crate::mods::config::ModConfig;
 use crate::mods::filesystem::{ModLoaderFolderFs, ModLoaderFs, ModLoaderMapFs};
 use crate::virtual_pack::FileContents;
 use color_eyre::eyre::{Context, Report, bail};
-use gdpatch_godot::build::GDScriptV2Build;
-use gdpatch_godot::gdscript::{Spanned, Token};
-use gdpatch_godot::pack::{Pack, PackConfig};
-use gdpatch_godot::project_settings::ProjectSettings;
+use avast_godot::build::GDScriptV2Build;
+use avast_godot::gdscript::{Spanned, Token};
+use avast_godot::pack::{Pack, PackConfig};
+use avast_godot::project_settings::ProjectSettings;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -21,7 +21,7 @@ mod filesystem;
 pub use builtin::BUILTIN_MOD_ID;
 
 /// Optional metadata for the mod.
-/// These fields are not used by GDPatch directly, but may be used by other mods (e.g. config UIs).
+/// These fields are not used by AVaSt directly, but may be used by other mods (e.g. config UIs).
 /// If you publish your mod online, we suggest making sure these values are in sync with your mod page.
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct ModMeta {
@@ -43,7 +43,7 @@ pub struct ModMeta {
 }
 
 /// Optional metadata for a mod's config section.
-/// These fields are not used by GDPatch directly, but may be used by other mods (e.g. config UIs).
+/// These fields are not used by AVaSt directly, but may be used by other mods (e.g. config UIs).
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ModConfigOptionMeta {
     /// Pretty name for this option.
@@ -53,7 +53,7 @@ pub struct ModConfigOptionMeta {
     pub description: Option<String>,
 
     /// Type for this option, to be used as a hint for custom config editors.
-    /// GDPatch does not perform any type checking, and the value saved in this option may not match the type.
+    /// AVaSt does not perform any type checking, and the value saved in this option may not match the type.
     pub r#type: Option<ModConfigOptionType>,
 
     /// The default value for this option.
@@ -87,7 +87,18 @@ pub struct ModInfo {
     /// Optional metadata for the mod's config options. Config options are referenced by a section ID and option ID.
     /// The "meta" option ID is reserved to represent metadata about the section itself.
     pub config: Option<ModConfigInfo>,
+
+    /// Game builds this mod supports. Absent bounds mean no limit on that side.
+    pub compat: Option<ModCompat>,
 }
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct ModCompat {
+    pub game_min: Option<u64>,
+    pub game_max: Option<u64>,
+}
+
+pub const SUPPORTED_GAME_BUILD: u64 = 25578107;
 
 pub type ModConfigInfo = IndexMap<String, IndexMap<String, ModConfigOptionMeta>>;
 
@@ -179,10 +190,20 @@ impl ModInfo {
         } else {
             Some(meta)
         };
+        let compat = ModCompat {
+            game_min: get("compat", "game_min").and_then(|s| s.parse().ok()),
+            game_max: get("compat", "game_max").and_then(|s| s.parse().ok()),
+        };
+        let compat = if compat.game_min.is_none() && compat.game_max.is_none() {
+            None
+        } else {
+            Some(compat)
+        };
         Ok(Self {
             id,
             meta,
             config: None,
+            compat,
         })
     }
 }
@@ -426,6 +447,10 @@ impl Mods {
             };
             match loaded {
                 Ok(r#mod) => {
+                    if let Err(err) = check_compat(&r#mod.info) {
+                        tracing::error!(mod_id = r#mod.info.id, ?err, "skipping incompatible mod");
+                        continue;
+                    }
                     if mods.contains_key(&r#mod.info.id) {
                         tracing::warn!(
                             mod_id = r#mod.info.id,
@@ -445,6 +470,25 @@ impl Mods {
 
         Ok(Mods(mods))
     }
+}
+
+fn check_compat(info: &ModInfo) -> color_eyre::Result<()> {
+    let Some(compat) = &info.compat else {
+        return Ok(());
+    };
+    if let Some(min) = compat.game_min
+        && SUPPORTED_GAME_BUILD < min
+    {
+        bail!(
+            "mod needs game build {min} or newer, loader supports {SUPPORTED_GAME_BUILD}"
+        );
+    }
+    if let Some(max) = compat.game_max
+        && SUPPORTED_GAME_BUILD > max
+    {
+        bail!("mod supports up to game build {max}, loader supports {SUPPORTED_GAME_BUILD}");
+    }
+    Ok(())
 }
 
 fn read_files_recursively(
@@ -494,6 +538,22 @@ mod tests {
     #[test]
     fn rejects_missing_id() {
         assert!(ModInfo::parse("[mod]\nversion=\"1.0.0\"\n").is_err());
+    }
+
+    #[test]
+    fn compat_range() {
+        let info = ModInfo::parse(
+            "[mod]\nid=\"showcase\"\n\n[compat]\ngame_min=\"25578107\"\ngame_max=\"25578107\"\n",
+        )
+        .unwrap();
+        assert!(check_compat(&info).is_ok());
+        let info = ModInfo::parse("[mod]\nid=\"showcase\"\n\n[compat]\ngame_min=\"99999999\"\n").unwrap();
+        assert!(check_compat(&info).is_err());
+        let info = ModInfo::parse("[mod]\nid=\"showcase\"\n\n[compat]\ngame_max=\"1\"\n").unwrap();
+        assert!(check_compat(&info).is_err());
+        let info = ModInfo::parse("[mod]\nid=\"showcase\"\n").unwrap();
+        assert!(info.compat.is_none());
+        assert!(check_compat(&info).is_ok());
     }
 
     #[test]

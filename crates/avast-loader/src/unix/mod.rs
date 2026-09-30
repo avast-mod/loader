@@ -1,9 +1,9 @@
 use color_eyre::eyre;
-use gdpatch::GDPatch;
+use avast::Avast;
 
 #[ctor::ctor]
 pub fn main() {
-    if gdpatch::is_disabled() {
+    if avast::is_disabled() {
         return;
     }
 
@@ -22,10 +22,10 @@ pub fn main() {
             .into_hooks();
         eyre::set_hook(eyre_hook.into_eyre_hook()).ok();
 
-        GDPatch::setup_instance_logging_etc()?;
-        let instance = GDPatch::instance();
+        Avast::setup_instance_logging_etc()?;
+        let instance = Avast::instance();
         if let Err(err) = instance.finish_setup() {
-            panic!("GDPatch initialization failed: {err:?}");
+            panic!("Avast initialization failed: {err:?}");
         }
 
         Ok(())

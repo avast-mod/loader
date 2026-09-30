@@ -20,15 +20,15 @@ mod mods;
 mod patch;
 mod virtual_pack;
 
-use crate::intercept::GDPatchStreamFactory;
+use crate::intercept::AvastStreamFactory;
 use crate::mods::{BUILTIN_MOD_ID, Mods, PatcherCallbacks};
 use crate::patch::Patcher;
 use crate::virtual_pack::VirtualPack;
 pub use config::Config;
-use gdpatch_godot::build::{VersionSpecifier, resolve_approximate_build};
-use gdpatch_godot::pack::{Pack, PackConfig};
+use avast_godot::build::{VersionSpecifier, resolve_approximate_build};
+use avast_godot::pack::{Pack, PackConfig};
 
-static INSTANCE: OnceLock<GDPatch> = OnceLock::new();
+static INSTANCE: OnceLock<Avast> = OnceLock::new();
 
 pub fn is_disabled() -> bool {
     std::env::var("AVAST_DISABLE")
@@ -45,14 +45,14 @@ fn root_dir_from_args() -> Option<PathBuf> {
 }
 
 #[derive(Debug)]
-pub struct GDPatch {
+pub struct Avast {
     pub config: Config,
     root_directory: PathBuf,
     virtual_packs: RwLock<HashMap<PathBuf, Arc<VirtualPack>>>,
     mods: RwLock<Option<Mods>>,
 }
 
-impl GDPatch {
+impl Avast {
     fn new(config: Config, root_directory: PathBuf) -> Self {
         Self {
             config,
@@ -62,7 +62,7 @@ impl GDPatch {
         }
     }
 
-    /// Returns the root directory used by GDPatch (usually next to the game install).
+    /// Returns the root directory used by AVaSt (usually next to the game install).
     pub fn get_root_directory(&self) -> PathBuf {
         self.root_directory.clone()
     }
@@ -122,10 +122,10 @@ impl GDPatch {
     ///
     /// # Panics
     /// This will panic if [`setup_instance`] hasn't been called.
-    pub fn instance() -> &'static GDPatch {
+    pub fn instance() -> &'static Avast {
         INSTANCE
             .get()
-            .expect("tried to get GDPatch before initialization")
+            .expect("tried to get AVaSt before initialization")
     }
 
     /// Configures the global instance.
@@ -149,13 +149,13 @@ impl GDPatch {
         let config = &root_directory.join("config.toml");
         let config = Config::parse(config).context("failed to read config")?;
 
-        let instance = GDPatch::new(config, root_directory);
+        let instance = Avast::new(config, root_directory);
 
         // Set up logger and global instance.
         instance.setup_logger()?;
 
         if INSTANCE.set(instance).is_err() {
-            bail!("called GDPatch::setup multiple times");
+            bail!("called Avast::setup multiple times");
         }
 
         Ok(())
@@ -176,7 +176,7 @@ impl GDPatch {
             .map(|e| e.pack)
             .unwrap_or_default();
         filesilly::init()?;
-        filesilly::set(Box::new(GDPatchStreamFactory(pack_config.clone())));
+        filesilly::set(Box::new(AvastStreamFactory(pack_config.clone())));
 
         // Search for mods.
         let mods_directory = self.root_directory.join("mods");

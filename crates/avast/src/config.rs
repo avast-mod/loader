@@ -4,7 +4,7 @@ use figment::{
     Figment,
     providers::{Env, Format, Serialized, Toml},
 };
-use gdpatch_godot::{build::SerializedEngineBuild, pack::PackConfig};
+use avast_godot::{build::SerializedEngineBuild, pack::PackConfig};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use toml_edit::{DocumentMut, RawString};
@@ -31,7 +31,7 @@ pub struct ConfigLog {
     /// To open the console window as soon as possible, set the AVAST_CONSOLE environment variable to 1.
     pub console: bool,
 
-    /// Whether to use colored logs (using ANSI formatting) in the GDPatch console.
+    /// Whether to use colored logs (using ANSI formatting) in the AVaSt console.
     /// This may not work correctly under Wine or Proton.
     pub console_ansi: bool,
 
@@ -82,7 +82,7 @@ pub struct ConfigEngine {
 #[derive(Deserialize, Serialize, Debug, DocumentedFieldsOpt, Default)]
 pub struct ConfigDebug {
     /// Whether to patch all game scripts present in the game pack.
-    /// This helps verify issues within GDPatch's script parsing code.
+    /// This helps verify issues within AVaSt's script parsing code.
     pub patch_all_scripts: bool,
 }
 

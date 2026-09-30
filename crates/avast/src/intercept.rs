@@ -1,9 +1,9 @@
 //! Lower-level filesystem interception implementation.
-use crate::GDPatch;
+use crate::Avast;
 use crate::virtual_pack::VirtualPack;
 use color_eyre::eyre::eyre;
 use filesilly::{Stream, StreamFactory};
-use gdpatch_godot::pack::{Pack, PackConfig};
+use avast_godot::pack::{Pack, PackConfig};
 use std::env::{current_dir, current_exe};
 use std::fs::File;
 use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
@@ -194,9 +194,9 @@ impl Read for PackStream {
                                 Ok(pack) => {
                                     debug!(file_count = %pack.files.len(), "found PCK file!");
 
-                                    let gdpatch = GDPatch::instance();
+                                    let avast = Avast::instance();
                                     let virtual_pack =
-                                        gdpatch.create_virtual_pack(path, file, pack, offset);
+                                        avast.create_virtual_pack(path, file, pack, offset);
 
                                     self.0 = PackStreamInner::Virtual(OpenVirtualPack::new(
                                         virtual_pack,
@@ -303,12 +303,12 @@ impl Seek for PackStream {
 
 impl Stream for PackStream {}
 
-/// Main entrypoint for GDPatch patching functionality. Handles patching Godot packs in memory, as
+/// Main entrypoint for AVaSt patching functionality. Handles patching Godot packs in memory, as
 /// well as direct GDScript communication via special paths.
 #[derive(Debug)]
-pub struct GDPatchStreamFactory(pub PackConfig);
+pub struct AvastStreamFactory(pub PackConfig);
 
-impl StreamFactory for GDPatchStreamFactory {
+impl StreamFactory for AvastStreamFactory {
     fn create_stream(&mut self, path: &Path) -> io::Result<Option<Box<dyn Stream>>> {
         // Redirect to the IPC stream if needed.
         if path == crate::ipc::IPC_FILENAME
@@ -319,16 +319,16 @@ impl StreamFactory for GDPatchStreamFactory {
             return Ok(Some(Box::new(crate::ipc::IpcStream::new())));
         }
 
-        let gdpatch = GDPatch::instance();
+        let avast = Avast::instance();
 
-        // Prevent proxying anything in GDPatch's root directory.
+        // Prevent proxying anything in AVaSt's root directory.
         // If this wasn't here, mod .pck files would fail to load.
-        if path.starts_with(&gdpatch.root_directory) {
+        if path.starts_with(&avast.root_directory) {
             return Ok(None);
         }
 
         // Check for paths we already know to be pack files.
-        if let Some(pack) = gdpatch.get_virtual_pack(path) {
+        if let Some(pack) = avast.get_virtual_pack(path) {
             // Path is a known pack file, just return a reference to its virtual pack.
             let stream = PackStream::new_virtual(pack);
             return Ok(Some(Box::new(stream)));

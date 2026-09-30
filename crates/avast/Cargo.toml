@@ -1,6 +1,6 @@
 [package]
-name = "gdpatch"
-description = "AVaSt mod loader core, forked from GDPatch"
+name = "avast"
+description = "AVaSt mod loader core, forked from Avast"
 publish = false
 version.workspace = true
 edition.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 
 [dependencies]
 filesilly.workspace = true
-gdpatch-godot.workspace = true
+avast-godot.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tracing-appender.workspace = true

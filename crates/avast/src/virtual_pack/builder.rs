@@ -1,5 +1,5 @@
 use crate::virtual_pack::{FileContents, VirtualPack, VirtualPackEntry};
-use gdpatch_godot::pack::{Pack, PackBuilder, PackConfig, PackedFile};
+use avast_godot::pack::{Pack, PackBuilder, PackConfig, PackedFile};
 use indexmap::IndexMap;
 
 /// Arbitrary alignment for files in packs. At least on Windows the userspace API tends to fetch
