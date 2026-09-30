@@ -1,5 +1,8 @@
 use color_eyre::eyre;
 use avast::Avast;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 #[ctor::ctor]
 pub fn main() {
@@ -7,13 +10,8 @@ pub fn main() {
         return;
     }
 
-    // For some reason this function is being called multiple times, so jank workaround for now
-    unsafe {
-        if std::env::var("AVAST_INIT").is_ok() {
-            return;
-        }
-
-        std::env::set_var("AVAST_INIT", "1");
+    if INITIALIZED.swap(true, Ordering::SeqCst) {
+        return;
     }
 
     let result = (|| -> color_eyre::Result<()> {
