@@ -146,7 +146,7 @@ impl Avast {
         };
         std::fs::create_dir_all(&root_directory).context("failed to create root directory")?;
 
-        let config = &root_directory.join("config.toml");
+        let config = &root_directory.join("avast.cfg");
         let config = Config::parse(config).context("failed to read config")?;
 
         let instance = Avast::new(config, root_directory);
@@ -163,10 +163,8 @@ impl Avast {
 
     /// Finishes the global setup.
     pub fn finish_setup(&self) -> color_eyre::Result<()> {
-        info!(
-            "This is AVaSt {}, heya! (loader forked from GDPatch)",
-            env!("CARGO_PKG_VERSION")
-        );
+        info!("Hello from AVaSt {}", env!("CARGO_PKG_VERSION"));
+        info!("AVaSt loader forked from GDPatch: https://gdpatch.dev/");
 
         // Setup file hooks.
         let pack_config = self
