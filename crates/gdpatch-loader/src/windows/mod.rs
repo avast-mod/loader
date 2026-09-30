@@ -28,7 +28,7 @@ static_detour! {
 }
 
 fn get_console_env_var() -> bool {
-    std::env::var("GDPATCH_CONSOLE")
+    std::env::var("AVAST_CONSOLE")
         .map(|e| e.parse::<bool>().unwrap_or_default() || e.parse::<u8>().unwrap_or_default() != 0)
         .unwrap_or_default()
 }

@@ -9,11 +9,11 @@ pub fn main() {
 
     // For some reason this function is being called multiple times, so jank workaround for now
     unsafe {
-        if std::env::var("GDPATCH_INIT").is_ok() {
+        if std::env::var("AVAST_INIT").is_ok() {
             return;
         }
 
-        std::env::set_var("GDPATCH_INIT", "1");
+        std::env::set_var("AVAST_INIT", "1");
     }
 
     let result = (|| -> color_eyre::Result<()> {

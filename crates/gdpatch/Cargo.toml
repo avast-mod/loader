@@ -1,6 +1,6 @@
 [package]
 name = "gdpatch"
-description = "A versatile cross-platform cross-version Godot mod loader"
+description = "AVaSt mod loader core, forked from GDPatch"
 publish = false
 version.workspace = true
 edition.workspace = true
@@ -21,8 +21,8 @@ toml_edit.workspace = true
 documented.workspace = true
 memmap2.workspace = true
 parking_lot.workspace = true
-mlua.workspace = true
 indexmap.workspace = true
+zip.workspace = true
 ordered-float.workspace = true
 include_dir.workspace = true
 color-eyre.workspace = true

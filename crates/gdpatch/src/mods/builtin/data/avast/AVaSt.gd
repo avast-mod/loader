@@ -1,7 +1,7 @@
 extends Node
 
-const MOD_ROOT: String = "res://gdpatch/mods/"
-const BUILTIN_MOD: String = "gdpatch"
+const MOD_ROOT: String = "res://avast/mods/"
+const BUILTIN_MOD: String = "avast"
 var mod_instances = {}
 var mutex: Mutex
 var file: FileAccess
@@ -11,9 +11,9 @@ var root_directory: String = ""
 
 func _init() -> void:
   self.mutex = Mutex.new()
-  self.file = FileAccess.open("gdpatch-ipc", FileAccess.READ_WRITE)
+  self.file = FileAccess.open("avast-ipc", FileAccess.READ_WRITE)
 
-  if self.get_config_option("gdpatch", "log", "include_godot"):
+  if self.get_config_option("avast", "log", "include_godot"):
     self._register_script_logger()
 
   var mod_list = self._send_command_with_response({
@@ -36,7 +36,7 @@ func _register_script_logger() -> void:
   var version := Engine.get_version_info()
 
   if version.major == 4 and version.minor >= 5:
-    load("res://gdpatch/logger.gd").new().register()
+    load("res://avast/logger.gd").new().register()
 
 func _send_command_with_response(req):
   var this_seq = seq

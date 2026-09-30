@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/GDPatch.iml" filepath="$PROJECT_DIR$/.idea/GDPatch.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/AVaSt.iml" filepath="$PROJECT_DIR$/.idea/AVaSt.iml" />
     </modules>
   </component>
 </project>

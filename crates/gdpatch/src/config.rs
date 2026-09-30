@@ -27,8 +27,8 @@ pub struct ConfigLog {
     /// The log level to use ("info", "debug", or "trace").
     pub level: LogLevel,
 
-    /// Whether to open a console window containing logs for GDPatch and Godot.
-    /// To open the console window as soon as possible, set the GDPATCH_CONSOLE environment variable to 1.
+    /// Whether to open a console window containing logs for AVaSt and Godot.
+    /// To open the console window as soon as possible, set the AVAST_CONSOLE environment variable to 1.
     pub console: bool,
 
     /// Whether to use colored logs (using ANSI formatting) in the GDPatch console.
@@ -101,7 +101,7 @@ impl Config {
         std::fs::write(path, config).context("failed to write config")?;
 
         // Add env variables, which we consider temporary
-        let env = Env::prefixed("GDPATCH_").split("_");
+        let env = Env::prefixed("AVAST_").split("_");
         figment
             .merge(env)
             .extract()

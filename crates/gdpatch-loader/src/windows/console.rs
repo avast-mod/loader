@@ -42,9 +42,9 @@ pub fn setup_panic_hook() {
             };
 
             let msg = format!(
-                r#"GDPatch has crashed! Sorry. :(
+                r#"AVaSt has crashed! Sorry. :(
 
-Check the log file for more debugging info. This may have been caused by a mod, or possibly GDPatch itself.
+Check the log file for more debugging info. This may have been caused by a mod, or possibly AVaSt itself. (AVaSt loader, forked from GDPatch)
 
 {payload}
                 "#,
@@ -54,7 +54,7 @@ Check the log file for more debugging info. This may have been caused by a mod, 
             MessageBoxW(
                 None,
                 &HSTRING::from(msg),
-                w!("GDPatch"),
+                w!("AVaSt"),
                 MB_ICONERROR | MB_SYSTEMMODAL,
             );
 

@@ -1,6 +1,6 @@
 use crate::{
     Config,
-    mods::{Mods, lua::PatcherCallbacks},
+    mods::{Mods, PatcherCallbacks},
     virtual_pack::{FileContents, builder::VirtualPackBuilder},
 };
 use color_eyre::eyre::Context as _;

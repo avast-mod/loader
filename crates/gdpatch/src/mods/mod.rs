@@ -3,20 +3,20 @@ use crate::mods::config::ModConfig;
 use crate::mods::filesystem::{ModLoaderFolderFs, ModLoaderFs, ModLoaderMapFs};
 use crate::virtual_pack::FileContents;
 use color_eyre::eyre::{Context, Report, bail};
-use figment::Figment;
-use figment::providers::{Format, Toml};
+use gdpatch_godot::build::GDScriptV2Build;
+use gdpatch_godot::gdscript::{Spanned, Token};
 use gdpatch_godot::pack::{Pack, PackConfig};
+use gdpatch_godot::project_settings::ProjectSettings;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 
 mod builtin;
 mod config;
 mod filesystem;
-pub mod lua;
 
 pub use builtin::BUILTIN_MOD_ID;
 
@@ -91,12 +91,99 @@ pub struct ModInfo {
 
 pub type ModConfigInfo = IndexMap<String, IndexMap<String, ModConfigOptionMeta>>;
 
+#[derive(Debug, Default)]
+pub struct PatcherCallbacks;
+
+impl PatcherCallbacks {
+    pub fn patch_script(
+        &self,
+        _path: &str,
+        tokens: Vec<Spanned<Token>>,
+        _version: &GDScriptV2Build,
+    ) -> color_eyre::Result<Vec<Spanned<Token>>> {
+        Ok(tokens)
+    }
+
+    pub fn has_patcher_for_script(&self, _path: &str) -> bool {
+        false
+    }
+
+    pub fn patch_project_settings(
+        &self,
+        settings: ProjectSettings,
+    ) -> color_eyre::Result<ProjectSettings> {
+        Ok(settings)
+    }
+
+    pub fn has_patcher_for_file(&self, _path: &str) -> bool {
+        false
+    }
+
+    pub fn patch_file(&self, _path: &str, input: &[u8]) -> color_eyre::Result<Vec<u8>> {
+        Ok(input.to_vec())
+    }
+}
+
 impl ModInfo {
     /// Parse the config.
     pub fn parse(data: &str) -> color_eyre::Result<Self> {
-        let toml = Toml::string(data);
-        let figment = Figment::from(toml);
-        figment.extract().context("failed to extract full config")
+        let mut section = String::new();
+        let mut values: HashMap<(String, String), String> = HashMap::new();
+        for raw in data.lines() {
+            let line = raw.trim();
+            if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
+                continue;
+            }
+            if let Some(name) = line
+                .strip_prefix('[')
+                .and_then(|s| s.strip_suffix(']'))
+            {
+                section = name.trim().to_string();
+                continue;
+            }
+            let Some((key, value)) = line.split_once('=') else {
+                bail!("Invalid line in mod.cfg: {raw}");
+            };
+            let value = value.trim();
+            let value = value
+                .strip_prefix('"')
+                .and_then(|s| s.strip_suffix('"'))
+                .unwrap_or(value);
+            values.insert((section.clone(), key.trim().to_string()), value.to_string());
+        }
+        let get = |s: &str, k: &str| values.get(&(s.to_string(), k.to_string())).cloned();
+        let Some(id) = get("mod", "id") else {
+            bail!("mod.cfg is missing [mod] id");
+        };
+        let meta = ModMeta {
+            name: get("mod", "name"),
+            version: get("mod", "version"),
+            authors: get("mod", "authors")
+                .map(|a| {
+                    a.split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default(),
+            description: get("mod", "description"),
+            website: get("mod", "website"),
+        };
+        let meta = if meta.name.is_none()
+            && meta.version.is_none()
+            && meta.authors.is_empty()
+            && meta.description.is_none()
+            && meta.website.is_none()
+        {
+            None
+        } else {
+            Some(meta)
+        };
+        Ok(Self {
+            id,
+            meta,
+            config: None,
+        })
     }
 }
 
@@ -145,7 +232,7 @@ impl ModPack {
     }
 }
 
-/// A loaded mod.
+    /// A loaded mod.
 #[derive(Debug)]
 pub struct Mod {
     /// The directory where the mod is stored.
@@ -153,9 +240,6 @@ pub struct Mod {
 
     /// Static info on the mod (ID, metadata, etc.).
     pub info: ModInfo,
-
-    /// The mod's patcher script. This will be empty if there is no `patcher.lua` in the mod folder.
-    pub patcher: Option<String>,
 
     /// The mod's pack. This will be empty if there is no `data.pck` in the mod folder.
     pub pack: Option<ModPack>,
@@ -169,23 +253,21 @@ pub struct Mods(pub HashMap<String, Mod>);
 
 impl Mods {
     /// Reads a mod from a directory. Errors if there is issues with the mod (e.g. invalid or
-    /// missing mod info, or patcher with invalid syntax).
+    /// missing mod info).
     fn read_mod_from_directory(
         fs: &dyn ModLoaderFs,
         configs_directory: &Path,
         pack_config: PackConfig,
     ) -> color_eyre::Result<Mod> {
-        // Check for a `gdpatch_mod.toml` file.
-        let mod_info_path = PathBuf::from("gdpatch_mod.toml");
+        // Check for a `mod.cfg` file.
+        let mod_info_path = PathBuf::from("mod.cfg");
         if !fs.exists(&mod_info_path)? {
-            bail!("Mod is missing a gdpatch_mod.toml");
+            bail!("Mod is missing a mod.cfg");
         }
 
-        let mod_info = fs
-            .read(&mod_info_path)
-            .wrap_err("reading gdpatch_mod.toml")?;
+        let mod_info = fs.read(&mod_info_path).wrap_err("reading mod.cfg")?;
         let mod_info = mod_info.as_slice();
-        let mod_info = std::str::from_utf8(mod_info).wrap_err("parsing gdpatch_mod.toml")?;
+        let mod_info = std::str::from_utf8(mod_info).wrap_err("parsing mod.cfg")?;
         let mod_info = ModInfo::parse(mod_info)?;
 
         if mod_info
@@ -196,17 +278,6 @@ impl Mods {
             // mainly to avoid any filesystem shenanigans
             bail!("Mod contains improperly formatted mod ID");
         }
-
-        // Search for patcher.
-        let patcher_path = PathBuf::from("patcher.lua");
-        let patcher = if fs.exists(&patcher_path)? {
-            let patcher = fs.read(&patcher_path).wrap_err("reading patcher.lua")?;
-            let patcher = patcher.as_slice();
-            let patcher = std::str::from_utf8(patcher).wrap_err("parsing patcher.lua")?;
-            Some(patcher.to_string())
-        } else {
-            None
-        };
 
         // Search for mod data.
         let pck_path = PathBuf::from("data.pck");
@@ -236,10 +307,37 @@ impl Mods {
         Ok(Mod {
             root_directory: fs.root(),
             info: mod_info,
-            patcher,
             pack,
             config,
         })
+    }
+
+    fn read_mod_from_avast_file(
+        path: &Path,
+        configs_directory: &Path,
+        pack_config: PackConfig,
+    ) -> color_eyre::Result<Mod> {
+        let file = std::fs::File::open(path).wrap_err("reading .avast file")?;
+        let mut archive = zip::ZipArchive::new(file).wrap_err("parsing .avast file")?;
+
+        let mut files = HashMap::<String, Vec<u8>>::new();
+        for i in 0..archive.len() {
+            let mut entry = archive.by_index(i).wrap_err("reading .avast entry")?;
+            if !entry.is_file() {
+                continue;
+            }
+            let name = entry.name().to_string();
+            let mut contents = Vec::with_capacity(entry.size() as usize);
+            entry
+                .read_to_end(&mut contents)
+                .wrap_err("reading .avast entry")?;
+            files.insert(name, contents);
+        }
+
+        let fs = ModLoaderMapFs::new(files);
+        let mut r#mod = Mods::read_mod_from_directory(&fs, configs_directory, pack_config)?;
+        r#mod.root_directory = Some(path.to_path_buf());
+        Ok(r#mod)
     }
 
     /// Searches for mod folders in the given directory and loads their metadata/patchers/etc.
@@ -303,7 +401,12 @@ impl Mods {
             };
 
             let candidate_path = candidate.path();
-            if !candidate_path.is_dir() {
+
+            let is_avast_bundle = candidate_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| e.eq_ignore_ascii_case("avast"));
+            if !candidate_path.is_dir() && !is_avast_bundle {
                 continue;
             }
 
@@ -311,8 +414,17 @@ impl Mods {
                 .strip_prefix(mods_directory)
                 .expect("directory doesn't have parent path as prefix?");
 
-            let fs = ModLoaderFolderFs::new(candidate_path.clone());
-            match Mods::read_mod_from_directory(&fs, configs_directory, pack_config.clone()) {
+            let loaded = if is_avast_bundle {
+                Mods::read_mod_from_avast_file(
+                    &candidate_path,
+                    configs_directory,
+                    pack_config.clone(),
+                )
+            } else {
+                let fs = ModLoaderFolderFs::new(candidate_path.clone());
+                Mods::read_mod_from_directory(&fs, configs_directory, pack_config.clone())
+            };
+            match loaded {
                 Ok(r#mod) => {
                     if mods.contains_key(&r#mod.info.id) {
                         tracing::warn!(
@@ -360,4 +472,49 @@ fn read_files_recursively(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn parses_api_style_mod_cfg() {
+        let info = ModInfo::parse(
+            "[mod]\nid=\"showcase\"\nversion=\"1.0.0\"\n\n[compat]\ngame_min=\"25578107\"\n",
+        )
+        .unwrap();
+        assert_eq!(info.id, "showcase");
+        let meta = info.meta.unwrap();
+        assert_eq!(meta.version.as_deref(), Some("1.0.0"));
+        assert!(info.config.is_none());
+    }
+
+    #[test]
+    fn rejects_missing_id() {
+        assert!(ModInfo::parse("[mod]\nversion=\"1.0.0\"\n").is_err());
+    }
+
+    #[test]
+    fn loads_avast_bundle() {
+        let dir = std::env::temp_dir().join("avast_loader_test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("showcase.avast");
+        let file = std::fs::File::create(&path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        zip.start_file("mod.cfg", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(b"[mod]\nid=\"showcase\"\nversion=\"1.0.0\"\n")
+            .unwrap();
+        zip.finish().unwrap();
+        let cfg = dir.join("showcase.toml");
+        let r#mod =
+            Mods::read_mod_from_avast_file(&path, &cfg, PackConfig::default()).unwrap();
+        assert_eq!(r#mod.info.id, "showcase");
+        assert!(r#mod.pack.is_none());
+        assert_eq!(r#mod.root_directory, Some(path.clone()));
+        std::fs::remove_file(&path).ok();
+        std::fs::remove_file(&cfg).ok();
+    }
 }

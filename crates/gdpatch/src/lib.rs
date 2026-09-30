@@ -8,12 +8,11 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
-use tracing::{debug, debug_span, error, info, info_span, level_filters::LevelFilter, warn};
+use tracing::{debug, debug_span, info, level_filters::LevelFilter, warn};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::filter::Targets;
 use tracing_subscriber::prelude::*;
 
-mod bindings;
 mod config;
 mod intercept;
 mod ipc;
@@ -22,8 +21,7 @@ mod patch;
 mod virtual_pack;
 
 use crate::intercept::GDPatchStreamFactory;
-use crate::mods::lua::{ModLua, PatcherCallbacks};
-use crate::mods::{BUILTIN_MOD_ID, Mods};
+use crate::mods::{BUILTIN_MOD_ID, Mods, PatcherCallbacks};
 use crate::patch::Patcher;
 use crate::virtual_pack::VirtualPack;
 pub use config::Config;
@@ -33,15 +31,15 @@ use gdpatch_godot::pack::{Pack, PackConfig};
 static INSTANCE: OnceLock<GDPatch> = OnceLock::new();
 
 pub fn is_disabled() -> bool {
-    std::env::var("GDPATCH_DISABLE")
+    std::env::var("AVAST_DISABLE")
         .map(|e| e.parse::<bool>().unwrap_or_default() || e.parse::<u8>().unwrap_or_default() != 0)
-        .unwrap_or_else(|_| std::env::args_os().any(|arg| arg == "--gdpatch-disable"))
+        .unwrap_or_else(|_| std::env::args_os().any(|arg| arg == "--avast-disable"))
 }
 
 fn root_dir_from_args() -> Option<PathBuf> {
     std::env::args_os().find_map(|arg| {
         arg.to_str()
-            .and_then(|arg| arg.strip_prefix("--gdpatch-root-directory="))
+            .and_then(|arg| arg.strip_prefix("--avast-root-directory="))
             .map(PathBuf::from)
     })
 }
@@ -141,10 +139,10 @@ impl GDPatch {
         // This is one of the few environment variables that we don't use via figment
         let root_directory = if let Some(dir) = root_dir_from_args() {
             dir
-        } else if let Ok(dir) = std::env::var("GDPATCH_ROOT_DIRECTORY") {
+        } else if let Ok(dir) = std::env::var("AVAST_ROOT_DIRECTORY") {
             PathBuf::from(dir)
         } else {
-            game_directory.join("GDPatch")
+            game_directory.join("AVaSt")
         };
         std::fs::create_dir_all(&root_directory).context("failed to create root directory")?;
 
@@ -165,7 +163,10 @@ impl GDPatch {
 
     /// Finishes the global setup.
     pub fn finish_setup(&self) -> color_eyre::Result<()> {
-        info!("This is GDPatch {}, heya!", env!("CARGO_PKG_VERSION"));
+        info!(
+            "This is AVaSt {}, heya! (loader forked from GDPatch)",
+            env!("CARGO_PKG_VERSION")
+        );
 
         // Setup file hooks.
         let pack_config = self
@@ -206,8 +207,7 @@ impl GDPatch {
                 id = %r#mod.info.id,
                 //version = %r#mod.info.meta.version,
                 //authors = ?r#mod.info.meta.authors,
-                has_patcher = %r#mod.patcher.is_some(),
-                has_pck = %r#mod.patcher.is_some()
+                has_pack = %r#mod.pack.is_some()
             );
 
             if r#mod.info.id != BUILTIN_MOD_ID {
@@ -277,48 +277,7 @@ impl GDPatch {
         let mapping = unsafe { Mmap::map(&file).expect("failed to mmap pack") };
         let mapping = Arc::new(mapping);
 
-        // Initialize mod patcher callbacks.
-        let mut patchers = Vec::new();
-        let callbacks = {
-            let mut callbacks = PatcherCallbacks::default();
-
-            {
-                let mods = self.mods.read();
-                let mods = mods.as_ref().expect("mods should have been initialized");
-
-                for r#mod in mods.0.values() {
-                    let _entered = info_span!("patcher_setup", mod = %r#mod.info.id).entered();
-
-                    if let Some(patcher) = &r#mod.patcher {
-                        let patcher = match ModLua::new(
-                            patcher,
-                            r#mod.root_directory.clone(),
-                            r#mod.info.id.clone(),
-                        ) {
-                            Ok(patcher) => patcher,
-                            Err(error) => {
-                                error!(%error, "failed to create patcher");
-                                continue;
-                            }
-                        };
-
-                        patchers.push(patcher);
-                    }
-                }
-            }
-
-            for patcher in &patchers {
-                let old_pack = Arc::downgrade(&old_pack);
-                let _entered = info_span!("patcher", mod = %patcher.mod_id).entered();
-
-                match patcher.run(old_pack, path.clone()) {
-                    Ok(mod_callbacks) => callbacks.merge(mod_callbacks),
-                    Err(err) => error!(%err, mod_id = patcher.mod_id, "failed to run patcher"),
-                }
-            }
-
-            callbacks
-        };
+        let callbacks = PatcherCallbacks::default();
 
         // Resolve engine build.
         let engine_build = {

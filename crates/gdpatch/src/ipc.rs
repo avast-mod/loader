@@ -10,7 +10,7 @@ use std::{
     path::PathBuf,
 };
 
-pub const IPC_FILENAME: &str = "gdpatch-ipc";
+pub const IPC_FILENAME: &str = "avast-ipc";
 
 macro_rules! log {
     (target: $target:literal, $level:ident, $message:literal) => {

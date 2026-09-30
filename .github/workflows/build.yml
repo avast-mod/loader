@@ -16,23 +16,23 @@ jobs:
         include:
           #- target: x86_64-pc-windows-msvc
           #  os: windows-latest
-          #  filename: gdpatch_loader.dll
+          #  filename: avast_loader.dll
 
           - target: x86_64-pc-windows-gnu
             os: ubuntu-latest
-            filename: gdpatch_loader.dll
+            filename: avast_loader.dll
 
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            filename: libgdpatch_loader.so
+            filename: libavast_loader.so
 
           - target: aarch64-apple-darwin
             os: macos-latest
-            filename: libgdpatch_loader.dylib
+            filename: libavast_loader.dylib
 
           #- target: x86_64-apple-darwin
           #  os: macos-latest
-          #  filename: libgdpatch_loader.dylib
+          #  filename: libavast_loader.dylib
 
     steps:
       - name: Checkout
@@ -51,9 +51,9 @@ jobs:
         run: sudo apt-get install --yes --no-install-recommends gcc-mingw-w64-x86-64-win32
 
       - name: Build
-        run: cargo build --package gdpatch-loader --release --target ${{ matrix.target }}
+        run: cargo build --package avast-loader --release --target ${{ matrix.target }}
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: gdpatch-${{ matrix.target }}
+          name: avast-loader-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/${{ matrix.filename }}

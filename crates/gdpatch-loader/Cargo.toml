@@ -1,6 +1,6 @@
 [package]
-name = "gdpatch-loader"
-description = "Loads GDPatch into the game process"
+name = "avast-loader"
+description = "Loads AVaSt into the game process"
 publish = false
 version.workspace = true
 edition.workspace = true

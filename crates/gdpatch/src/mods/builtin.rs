@@ -2,9 +2,7 @@ use color_eyre::eyre::OptionExt;
 use include_dir::{Dir, DirEntry, include_dir};
 use std::collections::HashMap;
 
-use crate::mods::{ModInfo, ModMeta};
-
-pub const BUILTIN_MOD_ID: &str = "gdpatch";
+pub const BUILTIN_MOD_ID: &str = "avast";
 
 static BUILTIN_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/mods/builtin");
 
@@ -30,19 +28,11 @@ pub fn create_builtin_mod() -> color_eyre::Result<HashMap<String, Vec<u8>>> {
     let mut result = HashMap::new();
     extract(&mut result, &BUILTIN_DIR)?;
 
-    let mod_info = ModInfo {
-        id: BUILTIN_MOD_ID.to_string(),
-        meta: Some(ModMeta {
-            name: Some("GDPatch".to_string()),
-            version: Some(env!("CARGO_PKG_VERSION").to_string()),
-            description: Some(env!("CARGO_PKG_DESCRIPTION").to_string()),
-            website: Some("https://gdpatch.dev/".to_string()),
-            authors: Vec::new(),
-        }),
-        config: None, // TODO
-    };
-    let mod_info = toml::to_string(&mod_info)?;
-    result.insert("gdpatch_mod.toml".to_string(), mod_info.as_bytes().to_vec());
+    let mod_info = format!(
+        "[mod]\nid = \"{BUILTIN_MOD_ID}\"\nname = \"AVaSt\"\nversion = \"{}\"\n",
+        env!("CARGO_PKG_VERSION")
+    );
+    result.insert("mod.cfg".to_string(), mod_info.into_bytes());
 
     Ok(result)
 }
